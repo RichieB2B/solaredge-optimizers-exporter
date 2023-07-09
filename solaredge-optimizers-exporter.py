@@ -2,7 +2,7 @@
 
 import prometheus_client as prom
 from solaredgeoptimizers import solaredgeoptimizers
-from datetime import datetime
+from datetime import datetime, timedelta
 import argparse
 import logging
 import json
@@ -14,6 +14,7 @@ import config
 if __name__ == '__main__':
   parser = argparse.ArgumentParser('SolarEdge Inverters Exporter')
   parser.add_argument('-d', '--debug', action='store_true')
+  parser.add_argument('-s', '--sleep', type=int, default=60)
   parser.add_argument('-p', '--port', type=int, default=8083)
   args = parser.parse_args()
   if args.debug:
@@ -60,19 +61,42 @@ if __name__ == '__main__':
             'manufacturer': data.manufacturer,
             'array': array,
           }
-          optimizer_power.labels(**labels).set(data.power)
-          optimizer_current.labels(**labels).set(data.current)
-          optimizer_energy.labels(**labels)._value.set(lifetime_energy)
-          optimizer_updated.labels(**labels).set(time.mktime(data.lastmeasurement.timetuple()))
-          labels['type'] = 'Voltage'
-          optimizer_voltage.labels(**labels).set(data.voltage)
-          labels['type'] = 'Optimizer Voltage'
-          optimizer_voltage.labels(**labels).set(data.optimizer_voltage)
+          if datetime.now() - data.lastmeasurement < timedelta(minutes=10):
+            optimizer_power.labels(**labels).set(data.power)
+            optimizer_current.labels(**labels).set(data.current)
+            optimizer_energy.labels(**labels)._value.set(lifetime_energy)
+            optimizer_updated.labels(**labels).set(time.mktime(data.lastmeasurement.timetuple()))
+            labels['type'] = 'Voltage'
+            optimizer_voltage.labels(**labels).set(data.voltage)
+            labels['type'] = 'Optimizer Voltage'
+            optimizer_voltage.labels(**labels).set(data.optimizer_voltage)
+          else:
+            # measurement is too old: remove actuals
+            try:
+              optimizer_power.remove(*labels.values())
+            except KeyError:
+              pass
+            try:
+              optimizer_current.remove(*labels.values())
+            except KeyError:
+              pass
+            optimizer_energy.labels(**labels)._value.set(lifetime_energy)
+            optimizer_updated.labels(**labels).set(time.mktime(data.lastmeasurement.timetuple()))
+            labels['type'] = 'Voltage'
+            try:
+              optimizer_voltage.remove(*labels.values())
+            except KeyError:
+              pass
+            labels['type'] = 'Optimizer Voltage'
+            try:
+              optimizer_voltage.remove(*labels.values())
+            except KeyError:
+              pass
           if data.lastmeasurement > max_updated:
             max_updated = data.lastmeasurement
 
     sensor_updated.set(time.mktime(max_updated.timetuple()))
     sensor_up.set(up)
 
-    time.sleep(60)
+    time.sleep(args.sleep)
 
