@@ -34,7 +34,7 @@ if __name__ == '__main__':
   optimizer_power   = prom.Gauge('solaredge_optimizer_power'            , 'Power in Watt', labels, unit='watts')
   optimizer_current = prom.Gauge('solaredge_optimizer_current'          , 'Current in Ampere', labels, unit='ampere')
   optimizer_voltage = prom.Gauge('solaredge_optimizer_voltage'          , 'Voltage in Volt', labels + ['type'], unit='volt')
-  optimizer_energy  = prom.Counter('solaredge_optimizer_lifetime_energy', 'Energy in kWh', labels, unit='kWh')
+  optimizer_energy  = prom.Counter('solaredge_optimizer_lifetime_energy', 'Energy in kWh', labels, unit='kwh')
   optimizer_updated = prom.Gauge('solaredge_optimizer_updated'          , 'Time in epoch', labels)
   sensor_updated    = prom.Gauge('updated'                              , 'SolarEdge Optimizers client last updated')
   sensor_up         = prom.Gauge('up'                                   , 'SolarEdge Optimizers client status')
@@ -42,17 +42,35 @@ if __name__ == '__main__':
 
   api = solaredgeoptimizers(siteid=config.siteid, username=config.username, password=config.password)
   while True:
-    up = 0
+    sensor_up.set(0)
     max_updated = datetime.min
-    site = api.requestListOfAllPanels()
-    lifetimeenergy = json.loads(api.getLifeTimeEnergy())
+    try:
+      site = api.requestListOfAllPanels()
+    except json.decoder.JSONDecodeError:
+      logging.warning('Caught JSONDecodeError during requestListOfAllPanels()')
+      sleep(10)
+      continue
+    try:
+      lifetimeenergy = json.loads(api.getLifeTimeEnergy())
+    except json.decoder.JSONDecodeError:
+      logging.warning('Caught JSONDecodeError during getLifeTimeEnergy()')
+      lifetimeenergy = None
+
     for inverter in site.inverters:
       for string in inverter.strings:
         for optimizer in string.optimizers:
-          up = 1
+          sensor_up.set(1)
           array = config.arrays.get(optimizer.serialNumber, 'unknown')
-          lifetime_energy = (float(lifetimeenergy[str(optimizer.optimizerId)]["unscaledEnergy"])) / 1000
-          data = api.requestSystemData(optimizer.optimizerId)
+          if lifetimeenergy:
+            lifetime_energy = (float(lifetimeenergy[str(optimizer.optimizerId)]["unscaledEnergy"])) / 1000
+          else:
+            lifetime_energy = None
+          try:
+            data = api.requestSystemData(optimizer.optimizerId)
+          except Exception as e:
+            logging.warning(f'Caught {type(e).__name__}: {str(e)} during requestSystemData({optimizer.optimizerId}) with serial {optimizer.serialNumber}')
+            sleep(10)
+            continue
           labels = {
             'id': optimizer.optimizerId,
             'serialnumber': optimizer.serialNumber,
@@ -64,7 +82,8 @@ if __name__ == '__main__':
           if datetime.now() - data.lastmeasurement < timedelta(minutes=10):
             optimizer_power.labels(**labels).set(data.power)
             optimizer_current.labels(**labels).set(data.current)
-            optimizer_energy.labels(**labels)._value.set(lifetime_energy)
+            if lifetime_energy:
+              optimizer_energy.labels(**labels)._value.set(lifetime_energy)
             optimizer_updated.labels(**labels).set(time.mktime(data.lastmeasurement.timetuple()))
             labels['type'] = 'Voltage'
             optimizer_voltage.labels(**labels).set(data.voltage)
@@ -80,7 +99,8 @@ if __name__ == '__main__':
               optimizer_current.remove(*labels.values())
             except KeyError:
               pass
-            optimizer_energy.labels(**labels)._value.set(lifetime_energy)
+            if lifetime_energy:
+              optimizer_energy.labels(**labels)._value.set(lifetime_energy)
             optimizer_updated.labels(**labels).set(time.mktime(data.lastmeasurement.timetuple()))
             labels['type'] = 'Voltage'
             try:
@@ -94,9 +114,7 @@ if __name__ == '__main__':
               pass
           if data.lastmeasurement > max_updated:
             max_updated = data.lastmeasurement
-
-    sensor_updated.set(time.mktime(max_updated.timetuple()))
-    sensor_up.set(up)
+            sensor_updated.set(time.mktime(max_updated.timetuple()))
 
     time.sleep(args.sleep)
 
