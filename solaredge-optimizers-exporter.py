@@ -79,7 +79,7 @@ if __name__ == '__main__':
             'manufacturer': data.manufacturer,
             'array': array,
           }
-          if datetime.now() - data.lastmeasurement < timedelta(minutes=10):
+          if datetime.now() - data.lastmeasurement < timedelta(minutes=30):
             optimizer_power.labels(**labels).set(data.power)
             optimizer_current.labels(**labels).set(data.current)
             if lifetime_energy:
