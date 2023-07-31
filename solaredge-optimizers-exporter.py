@@ -48,7 +48,7 @@ if __name__ == '__main__':
       site = api.requestListOfAllPanels()
     except json.decoder.JSONDecodeError:
       logging.warning('Caught JSONDecodeError during requestListOfAllPanels()')
-      time.sleep(10)
+      time.sleep(args.sleep/2)
       continue
     try:
       lifetimeenergy = json.loads(api.getLifeTimeEnergy())
@@ -68,8 +68,8 @@ if __name__ == '__main__':
           try:
             data = api.requestSystemData(optimizer.optimizerId)
           except Exception as e:
-            logging.warning(f'Caught {type(e).__name__}: {str(e)} during requestSystemData({optimizer.optimizerId}) with serial {optimizer.serialNumber}')
-            time.sleep(10)
+            logging.warning(f'Caught {type(e).__name__}: {str(e)} during requestSystemData({optimizer.optimizerId}) for {optimizer.name} with serial {optimizer.serialNumber}')
+            time.sleep(args.sleep/2)
             continue
           labels = {
             'id': optimizer.optimizerId,
