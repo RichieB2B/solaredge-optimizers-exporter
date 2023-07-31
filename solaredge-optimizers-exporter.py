@@ -3,6 +3,7 @@
 import prometheus_client as prom
 from solaredgeoptimizers import solaredgeoptimizers
 from datetime import datetime, timedelta
+from requests.exceptions import ConnectionError, ConnectTimeout, Timeout
 import argparse
 import logging
 import json
@@ -46,14 +47,14 @@ if __name__ == '__main__':
     max_updated = datetime.min
     try:
       site = api.requestListOfAllPanels()
-    except json.decoder.JSONDecodeError:
-      logging.warning('Caught JSONDecodeError during requestListOfAllPanels()')
+    except (json.decoder.JSONDecodeError, ConnectionError, ConnectTimeout, Timeout) as e:
+      logging.warning(f'Caught {type(e).__name__} during requestListOfAllPanels()')
       time.sleep(args.sleep/2)
       continue
     try:
       lifetimeenergy = json.loads(api.getLifeTimeEnergy())
-    except json.decoder.JSONDecodeError:
-      logging.warning('Caught JSONDecodeError during getLifeTimeEnergy()')
+    except (json.decoder.JSONDecodeError, ConnectionError, ConnectTimeout, Timeout) as e:
+      logging.warning(f'Caught {type(e).__name__} during getLifeTimeEnergy()')
       lifetimeenergy = None
 
     for inverter in site.inverters:
