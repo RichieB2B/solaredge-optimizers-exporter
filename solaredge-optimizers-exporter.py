@@ -8,39 +8,12 @@ import argparse
 import logging
 import json
 import time
+import cProfile
 
 # local imports
 import config
 
-if __name__ == '__main__':
-  parser = argparse.ArgumentParser('SolarEdge Inverters Exporter')
-  parser.add_argument('-d', '--debug', action='store_true')
-  parser.add_argument('-s', '--sleep', type=int, default=60)
-  parser.add_argument('-p', '--port', type=int, default=8083)
-  args = parser.parse_args()
-  if args.debug:
-    level=logging.DEBUG
-  else:
-    level=logging.INFO
-  logging.basicConfig(level=level)
-
-  labels = [
-    'id',
-    'serialnumber',
-    'position',
-    'model',
-    'manufacturer',
-    'array',
-  ]
-  optimizer_power   = prom.Gauge('solaredge_optimizer_power'            , 'Power in Watt', labels, unit='watts')
-  optimizer_current = prom.Gauge('solaredge_optimizer_current'          , 'Current in Ampere', labels, unit='ampere')
-  optimizer_voltage = prom.Gauge('solaredge_optimizer_voltage'          , 'Voltage in Volt', labels + ['type'], unit='volt')
-  optimizer_energy  = prom.Counter('solaredge_optimizer_lifetime_energy', 'Energy in kWh', labels, unit='kwh')
-  optimizer_updated = prom.Gauge('solaredge_optimizer_updated'          , 'Time in epoch', labels)
-  sensor_updated    = prom.Gauge('updated'                              , 'SolarEdge Optimizers client last updated')
-  sensor_up         = prom.Gauge('up'                                   , 'SolarEdge Optimizers client status')
-  prom.start_http_server(args.port)
-
+def main():
   api = solaredgeoptimizers(siteid=config.siteid, username=config.username, password=config.password)
   while True:
     sensor_up.set(0)
@@ -118,4 +91,36 @@ if __name__ == '__main__':
             sensor_updated.set(time.mktime(max_updated.timetuple()))
 
     time.sleep(args.sleep)
+
+if __name__ == '__main__':
+  parser = argparse.ArgumentParser('SolarEdge Inverters Exporter')
+  parser.add_argument('-d', '--debug', action='store_true')
+  parser.add_argument('-s', '--sleep', type=int, default=60)
+  parser.add_argument('-p', '--port', type=int, default=8083)
+  args = parser.parse_args()
+  if args.debug:
+    level=logging.DEBUG
+  else:
+    level=logging.INFO
+  logging.basicConfig(level=level)
+
+  labels = [
+    'id',
+    'serialnumber',
+    'position',
+    'model',
+    'manufacturer',
+    'array',
+  ]
+  optimizer_power   = prom.Gauge('solaredge_optimizer_power'            , 'Power in Watt', labels, unit='watts')
+  optimizer_current = prom.Gauge('solaredge_optimizer_current'          , 'Current in Ampere', labels, unit='ampere')
+  optimizer_voltage = prom.Gauge('solaredge_optimizer_voltage'          , 'Voltage in Volt', labels + ['type'], unit='volt')
+  optimizer_energy  = prom.Counter('solaredge_optimizer_lifetime_energy', 'Energy in kWh', labels, unit='kwh')
+  optimizer_updated = prom.Gauge('solaredge_optimizer_updated'          , 'Time in epoch', labels)
+  sensor_updated    = prom.Gauge('updated'                              , 'SolarEdge Optimizers client last updated')
+  sensor_up         = prom.Gauge('up'                                   , 'SolarEdge Optimizers client status')
+  prom.start_http_server(args.port)
+
+#  cProfile.run('main()', sort='tottime')
+  main()
 
