@@ -8,7 +8,6 @@ import argparse
 import logging
 import json
 import time
-import cProfile
 
 # local imports
 import config
@@ -97,6 +96,7 @@ def main():
 if __name__ == '__main__':
   parser = argparse.ArgumentParser('SolarEdge Inverters Exporter')
   parser.add_argument('-d', '--debug', action='store_true')
+  parser.add_argument('-P', '--profile', action='store_true')
   parser.add_argument('-s', '--sleep', type=int, default=60)
   parser.add_argument('-p', '--port', type=int, default=8083)
   args = parser.parse_args()
@@ -123,6 +123,9 @@ if __name__ == '__main__':
   sensor_up         = prom.Gauge('up'                                   , 'SolarEdge Optimizers client status')
   prom.start_http_server(args.port)
 
-#  cProfile.run('main()', sort='tottime')
-  main()
+  if args.profile:
+    import cProfile
+    cProfile.run('main()', sort='tottime')
+  else:
+    main()
 
