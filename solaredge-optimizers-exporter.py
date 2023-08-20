@@ -53,6 +53,8 @@ def main():
             'manufacturer': data.manufacturer,
             'array': array,
           }
+          if args.debug:
+            logging.debug(f'Measurement for optimizer {optimizer.displayName} was {datetime.now() - data.lastmeasurement} ago')
           if datetime.now() - data.lastmeasurement < timedelta(minutes=30):
             optimizer_power.labels(**labels).set(data.power)
             optimizer_current.labels(**labels).set(data.current)
