@@ -8,6 +8,7 @@ import argparse
 import logging
 import json
 import time
+import sys
 
 # local imports
 import config
@@ -94,6 +95,8 @@ def main():
     time.sleep(args.sleep)
 
 if __name__ == '__main__':
+  sys.stdout.reconfigure(line_buffering=True)
+  sys.stderr.reconfigure(line_buffering=True)
   parser = argparse.ArgumentParser('SolarEdge Inverters Exporter')
   parser.add_argument('-d', '--debug', action='store_true')
   parser.add_argument('-P', '--profile', action='store_true')
